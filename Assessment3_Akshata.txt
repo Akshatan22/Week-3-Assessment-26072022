@@ -1,0 +1,157 @@
+HIVE
+
+> create table posts (id int, post_type int, creation_date string, score int, viewcount float, owneruser_id int,title string, 
+answercount int, commentcount int ) row format delimited fields terminated by ',';
+> describe posts;
+> load data inpath '/user/pig/posts.csv' into table posts;
+
+
+> create table comments (id int, userid int) row format delimited fields terminated by ',';
+> describe comments;
+> load data inpath '/user/pig/comments.csv' into table comments;
+
+> create table users (id int,reputation int,display_name string,loc string,age int) row format 
+delimited fields terminated by ',';
+> describe users;
+> load data inpath '/user/pig/users.csv' into table users;
+
+
+> create table posttypes (id int, name string) row format delimited fields terminated by ',';
+> describe posttypes;
+> load data inpath '/user/pig/posttypes.csv' into table posttypes;
+
+
+A. Find the display name and no. of posts created by the user who has got
+maximum reputation.
+> select u.displayname,p.viewcount from users as u join posts as p on u.id=p.id where u.reputation in (select max(u1.reputation) from users as u1 join posts as p1 on u1.id=p1.id where p1.viewcount != 0);
+
+
+B. Find the average age of users on the Stack Overflow site.
+> select avg(users.age) as A from users group by age;
+
+C. Find the display name of user who posted the oldest post on Stack Overflow (in terms of date).
+> select display_name,creation_date from users inner join posts on (users.id=posts.id) order by creation_date asc ;
+
+D. Find the display name and no. of comments done by the user who has got maximum reputation.
+> select display_name,commentcount,reputation from users inner join posts on (posts.id=users.id) order by reputation desc;
+
+E. Find the display name of user who has created maximum no. of posts on Stack Overflow.
+> select display_name from users inner join posts on (posts.id=users.id) order by (answercount+commentcount) desc;
+
+F. Find the owner name and id of user whose post has got maximum no. of view counts so far.
+> select owneruser_id,display_name,viewcount from users inner join posts on (posts.id=users.id) order by viewcount desc;
+
+G. find the title and owner name of post who has got maximum no. of Comment count.
+> select title,owneruser_id,display_name,commentcount from users inner join posts on (posts.id=users.id) order by commentcount desc limit 1;
+
+H. Find the location which has maximum no of Stack Overflow users.
+> select loc ,count(id) as B from users group by loc order by B desc limit 1;
+
+I. Find the total no. of answers, posts, comments created by Indian users.
+> select loc, count(post_type) from users inner join posts on (posts.id=users.id) where loc like '%India%' group by loc;
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+PIG
+
+a = load '/user/pig/posts.csv' using PigStorage(',') as (id:int, post_type:int, creation_date:chararray, score:int, viewcount:float, owneruser_id:int,title:chararray, answercount:int, commentcount:int );
+
+
+b = load '/user/pig/comments.csv' USING PigStorage(',') as (id:int, userid:int);
+
+
+c = load '/user/pig/users.csv' using PigStorage(',') as (id:int,reputation:int,display_name:chararray,loc:chararray,age:int);
+
+
+d = load '/user/pig/posttypes.csv' USING PigStorage(',') as (id:int, name:chararray);
+
+
+A. Find the display name and no. of posts created by the user who has got
+maximum reputation.
+e = join a by id, c by id;
+f= ORDER e by reputation desc;
+g= limit f 1;
+h= foreach g generate display_name,post_type;
+dump h;
+
+
+B. Find the average age of users on the Stack Overflow site.
+e= group c ALL;
+f= foreach e generate AVG(c.age);
+dump f;
+
+
+C. Find the display name of user who posted the oldest post on Stack Overflow (in terms of date).
+e = join a by id,c by id;
+f = ORDER e by creation_date asc;
+g = limit f 1;
+h = foreach g generate display_name,creation_date;
+dump h;
+
+
+D. Find the display name and no. of comments done by the user who has got maximum reputation.
+e = join a by id, c by id;
+f= ORDER e by reputation desc;
+g= limit f 1;
+h= foreach g generate displayname,commentcount;
+
+
+E. Find the display name of user who has created maximum no. of posts on Stack Overflow.
+e= join a by id, c by id;
+f = ORDER e by score desc;
+g= limit f 1;
+h= foreach g generate display_name;
+
+
+F. Find the owner name and id of user whose post has got maximum no. of view counts so far.
+e = join a by id, c by id;
+f= ORDER e by viewcount desc;
+g= limit f 1;
+h= foreach g generate display_name,owneruser_id;
+dump h;
+
+G. find the title and owner name of post who has got maximum no. of Comment count.
+e = join a by id, c by id;
+f= ORDER e by commentcount desc;
+g= limit f 1;
+h= foreach g generate display_name,title;
+dump h;
+
+H. Find the location which has maximum no of Stack Overflow users.
+e = join a by id, c by id;
+f= group e by loc;
+g= foreach f generate group, COUNT(e.owneruser_id );
+store g into '/user/pig/';
+h= ORDER g by  $01 desc;
+i= limit h 1;
+dump e;
+
+I. Find the total no. of answers, posts, comments created by Indian users.
+E = join a by id, c by id;
+F= filter E by loc=='India';
+G =group F ALL;
+H= foreach G generate SUM(F.commentcount),SUM(F.answercount),SUM(F.score);
+dump H;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
